@@ -154,6 +154,18 @@ main{max-width:1080px;margin:0 auto;padding:34px 16px 20px}
 }
 .song .name{font-size:15px;color:var(--ink);letter-spacing:.02em;line-height:1.5;word-break:break-all}
 .song .name .sc{color:var(--gold-soft);font-size:.76em;margin-left:3px;letter-spacing:.05em}
+.song .copy{
+  margin-left:auto;flex:none;align-self:center;
+  appearance:none;border:1px solid transparent;background:transparent;
+  color:var(--ink-dim);font-size:12px;font-family:var(--sans);
+  padding:2px 10px;border-radius:12px;cursor:pointer;
+  opacity:0;transition:opacity .15s,color .15s,border-color .15s,background .15s;
+  letter-spacing:.02em;
+}
+.song:hover .copy{opacity:1}
+.song .copy:hover{color:var(--gold-soft);border-color:rgba(216,166,78,.35)}
+.song .copy.done{opacity:1;color:#171207;background:var(--gold);border-color:var(--gold)}
+@media (hover:none){.song .copy{opacity:.75}}
 .empty{
   display:none;text-align:center;padding:56px 16px;color:var(--ink-dim);
   font-size:15px;letter-spacing:.05em;
@@ -197,7 +209,7 @@ footer .rule{color:var(--ink-dim)}
   <div class="toolbar-inner">
     <label class="search">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
-      <input id="search" type="search" placeholder="搜索歌名…" autocomplete="off" aria-label="搜索歌名">
+      <input id="search" type="search" placeholder="搜索歌名 / 序号…" autocomplete="off" aria-label="搜索歌名或序号">
     </label>
     <div class="chips" id="chips" role="tablist" aria-label="按歌名长度筛选"></div>
   </div>
@@ -246,6 +258,22 @@ chips.forEach(c=>{
   chipsEl.appendChild(btn);
 });
 
+// 复制文字到剪贴板（https 用 Clipboard API，其他环境自动降级）
+function copyText(t){
+  if(navigator.clipboard && window.isSecureContext){
+    return navigator.clipboard.writeText(t);
+  }
+  const ta = document.createElement("textarea");
+  ta.value = t;
+  ta.setAttribute("readonly","");
+  ta.style.position = "fixed"; ta.style.top = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(ta);
+  return Promise.resolve();
+}
+
 // 渲染
 function render(){
   const q = query.trim().toLowerCase();
@@ -255,7 +283,7 @@ function render(){
 
   GROUP_ORDER.forEach(g=>{
     const songs = groups[g];
-    const matched = songs.filter(s=>!isSearch || s.t.toLowerCase().includes(q));
+    const matched = songs.filter(s=>!isSearch || s.t.toLowerCase().includes(q) || String(s.n).includes(q));
     const showGroup = isSearch ? matched.length>0 : (activeGroup==="all" || activeGroup===String(g));
     if(!showGroup) return;
     totalShown += matched.length;
@@ -279,15 +307,35 @@ function render(){
       const nm = document.createElement("span");
       nm.className = "name";
       const scSuffix = /(\(sc\))$/.exec(s.t);
+      let copyName;
       if(scSuffix){
         const head = document.createTextNode(s.t.slice(0, scSuffix.index));
         const sc = document.createElement("span");
         sc.className = "sc"; sc.textContent = "(sc)";
         nm.appendChild(head); nm.appendChild(sc);
+        copyName = s.t.slice(0, scSuffix.index);
       }else{
         nm.textContent = s.t;
+        copyName = s.t;
       }
       row.appendChild(no); row.appendChild(nm);
+
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.className = "copy";
+      copyBtn.textContent = "复制";
+      copyBtn.setAttribute("aria-label","复制歌名 " + copyName);
+      copyBtn.addEventListener("click",()=>{
+        copyText(copyName).then(()=>{
+          copyBtn.textContent = "已复制";
+          copyBtn.classList.add("done");
+          setTimeout(()=>{
+            copyBtn.textContent = "复制";
+            copyBtn.classList.remove("done");
+          },1200);
+        });
+      });
+      row.appendChild(copyBtn);
       sec.appendChild(row);
     });
     listEl.appendChild(sec);
