@@ -261,8 +261,11 @@ chips.forEach(c=>{
 // 复制文字到剪贴板（https 用 Clipboard API，其他环境自动降级）
 function copyText(t){
   if(navigator.clipboard && window.isSecureContext){
-    return navigator.clipboard.writeText(t);
+    return navigator.clipboard.writeText(t).catch(()=>legacyCopy(t));
   }
+  return legacyCopy(t);
+}
+function legacyCopy(t){
   const ta = document.createElement("textarea");
   ta.value = t;
   ta.setAttribute("readonly","");
@@ -326,14 +329,15 @@ function render(){
       copyBtn.textContent = "复制";
       copyBtn.setAttribute("aria-label","复制歌名 " + copyName);
       copyBtn.addEventListener("click",()=>{
-        copyText(copyName).then(()=>{
+        const showDone = ()=>{
           copyBtn.textContent = "已复制";
           copyBtn.classList.add("done");
           setTimeout(()=>{
             copyBtn.textContent = "复制";
             copyBtn.classList.remove("done");
           },1200);
-        });
+        };
+        copyText(copyName).then(showDone).catch(showDone);
       });
       row.appendChild(copyBtn);
       sec.appendChild(row);
